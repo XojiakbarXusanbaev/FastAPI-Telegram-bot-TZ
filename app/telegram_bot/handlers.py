@@ -1,0 +1,181 @@
+import logging
+from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
+from telegram.ext import ContextTypes, ConversationHandler
+import requests
+import json
+
+# Configure logging
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+)
+logger = logging.getLogger(__name__)
+
+# API base URL
+API_BASE_URL = "http://localhost:8000"
+
+# Define conversation states
+PHONE, VERIFICATION = range(2)
+
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Start the conversation and ask for the phone number."""
+    user = update.effective_user
+    
+    # Store user's telegram_id
+    context.user_data["telegram_id"] = user.id
+    
+    # Request phone number with a button
+    keyboard = [[KeyboardButton("Telefon raqamni yuborish", request_contact=True)]]
+    reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True)
+    
+    await update.message.reply_html(
+        f"Salom, {user.mention_html()}! 👋\n\n"
+        "Ro'yxatdan o'tkazish botiga xush kelibsiz.\n"
+        "Ro'yxatdan o'tish uchun telefon raqamingizni ulashing.",
+        reply_markup=reply_markup,
+    )
+    
+    return PHONE
+
+
+async def request_phone(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Ask user to share their phone number via button."""
+    keyboard = [[KeyboardButton("Telefon raqamni yuborish", request_contact=True)]]
+    reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True)
+    
+    await update.message.reply_text(
+        "Telefon raqamingizni yuborish uchun quyidagi tugmani bosing.",
+        reply_markup=reply_markup,
+    )
+    
+    return PHONE
+
+
+async def handle_phone(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Handle the received phone number."""
+    # Get user's phone number and telegram_id
+    phone_number = update.message.contact.phone_number
+    telegram_id = context.user_data.get("telegram_id")
+    
+    if not phone_number.startswith("+"):
+        phone_number = f"+{phone_number}"
+    
+    # Store the phone number
+    context.user_data["phone_number"] = phone_number
+    
+    # Register user via API
+    try:
+        response = requests.post(
+            f"{API_BASE_URL}/register",
+            json={
+                "telegram_id": telegram_id,
+                "phone_number": phone_number
+            }
+        )
+        response.raise_for_status()
+        
+        # Log successful registration
+        logger.info(f"User {telegram_id} registered with phone number {phone_number}")
+        
+        # Get verification code from API response or logs
+        verification_code = ""  # Default empty string
+        
+        # Make another request to get the verification code
+        code_response = requests.get(f"{API_BASE_URL}/get_verification_code/{telegram_id}")
+        if code_response.status_code == 200:
+            verification_code = code_response.json().get("verification_code", "")
+        
+        registration_message = "Siz muvaffaqiyatli ro'yxatdan o'tdingiz!\n\n"
+        
+        if verification_code:
+            registration_message += f"Tasdiqlash kodingiz: {verification_code}\n"
+        else:
+            registration_message += "Siz uchun 6 raqamli tasdiqlash kodi yaratildi.\n"
+            
+        registration_message += "Hisobingizni tasdiqlash uchun kodni kiriting."
+        
+        await update.message.reply_text(
+            registration_message,
+            reply_markup=ReplyKeyboardRemove(),
+        )
+        
+        return VERIFICATION
+    
+    except requests.exceptions.RequestException as e:
+        error_message = "An error occurred during registration."
+        
+        if hasattr(e, 'response') and e.response:
+            try:
+                error_data = e.response.json()
+                if 'detail' in error_data:
+                    error_message = error_data['detail']
+            except json.JSONDecodeError:
+                pass
+        
+        logger.error(f"Registration error for user {telegram_id}: {str(e)}")
+        
+        await update.message.reply_text(
+            f"Xato: {error_message}\n"
+            "Qaytadan urinib ko'rish uchun /start tugmasini bosing",
+            reply_markup=ReplyKeyboardRemove(),
+        )
+        
+        return ConversationHandler.END
+
+
+async def handle_verification_code(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Handle the verification code."""
+    verification_code = update.message.text.strip()
+    telegram_id = context.user_data.get("telegram_id")
+    
+    # Verify code via API
+    try:
+        response = requests.post(
+            f"{API_BASE_URL}/verify",
+            json={
+                "telegram_id": telegram_id,
+                "verification_code": verification_code
+            }
+        )
+        response.raise_for_status()
+        
+        # Log successful verification
+        logger.info(f"User {telegram_id} verified successfully")
+        
+        await update.message.reply_text(
+            "🎉 Hisobingiz muvaffaqiyatli tasdiqlandi!\n"
+            "Endi xizmatdan foydalanishingiz mumkin.",
+            reply_markup=ReplyKeyboardRemove(),
+        )
+        
+        return ConversationHandler.END
+    
+    except requests.exceptions.RequestException as e:
+        error_message = "Invalid or expired verification code."
+        
+        if hasattr(e, 'response') and e.response:
+            try:
+                error_data = e.response.json()
+                if 'detail' in error_data:
+                    error_message = error_data['detail']
+            except json.JSONDecodeError:
+                pass
+        
+        logger.error(f"Verification error for user {telegram_id}: {str(e)}")
+        
+        await update.message.reply_text(
+            f"Xato: {error_message}\n"
+            "Qaytadan urinib ko'ring yoki jarayonni qayta boshlash uchun /start tugmasini bosing.",
+        )
+        
+        return VERIFICATION
+
+
+async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Cancel and end the conversation."""
+    await update.message.reply_text(
+        "Ro'yxatdan o'tish bekor qilindi. /start orqali qayta boshlashingiz mumkin.",
+        reply_markup=ReplyKeyboardRemove(),
+    )
+    
+    return ConversationHandler.END

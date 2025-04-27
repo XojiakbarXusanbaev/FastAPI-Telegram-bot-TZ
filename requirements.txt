@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+sqlalchemy
+pydantic
+python-telegram-bot
+python-dotenv
+psycopg2-binary
+asyncpg
+alembic
+requests
