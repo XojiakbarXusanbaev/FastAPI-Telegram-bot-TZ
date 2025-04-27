@@ -19,13 +19,11 @@ class User(Base):
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
     def set_verification_code(self, code: str):
-        """Set verification code and expiry time"""
         self.verification_code = code
         self.expires_at = datetime.now() + timedelta(minutes=VERIFICATION_CODE_EXPIRY_MINUTES)
         self.is_verified = False
 
     def is_code_valid(self, code: str) -> bool:
-        """Check if verification code is valid and not expired"""
         if self.is_verified:
             return False
         

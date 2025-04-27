@@ -8,7 +8,6 @@ class UserRegister(BaseModel):
     
     @validator('phone_number')
     def validate_phone(cls, value):
-        # Check if phone number is valid (e.g., +998901234567)
         if not re.match(r'^\+[0-9]{12}$', value):
             raise ValueError('Invalid phone number format. It should be like +998901234567')
         return value
