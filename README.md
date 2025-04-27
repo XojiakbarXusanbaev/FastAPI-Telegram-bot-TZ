@@ -1,34 +1,59 @@
-# FastAPI-Telegram-bot-TZ
-📘 Texnik Topshiriq (TZ)
-# 📲 Telegram orqali LMS foydalanuvchini ro'yxatdan o'tkazish va tasdiqlash tizimi
+# Telegram Bot orqali Foydalanuvchilarni Ro'yxatdan o'tkazish
 
-Loyiha maqsadi — foydalanuvchilarni **faqat Telegram bot orqali** ro'yxatdan o'tkazish va 1 daqiqalik tasdiqlash kodi bilan `is_verified=True` holatiga olib chiqish. API FastAPI yordamida qurilgan.
+Bu loyiha foydalanuvchilarni Telegram bot orqali ro'yxatdan o'tkazish va SMS tasdiqlash kodlari bilan tasdiqlash imkonini beradi.
 
----
+## Texnologiyalar
 
-## 🎯 Loyiha vazifalari
+- FastAPI - Asosiy API server
+- SQLAlchemy - ORM orqali bazani boshqarish
+- PostgreSQL - Ma'lumotlar bazasi
+- python-telegram-bot - Telegram bilan integratsiya
+- Pydantic - Ma'lumotlar validatsiyasi
+- Python-dotenv - Konfiguratsiya boshqaruvi (.env)
 
-- Foydalanuvchi `/start` bosgach, Telegram orqali `phone_number` va `telegram_id` yuboriladi.
-- API foydalanuvchini bazaga qo‘shadi va unga 6 xonali 1 daqiqalik tasdiqlash kodini yuboradi.
-- Foydalanuvchi ushbu kodni yuborish orqali o‘zini tasdiqlaydi (`/verify` endpoint orqali).
-- Tizim `is_verified=True` holatini saqlaydi.
+## O'rnatish
 
----
+1. Loyihani klonlang:
+```bash
+git clone https://github.com/username/FastAPI-Telegram-bot-TZ.git
+cd FastAPI-Telegram-bot-TZ
+```
 
-## 🧱 Texnologiyalar
+2. Kerakli paketlarni o'rnating:
+```bash
+pip install -r requirements.txt
+```
 
-| Texnologiya     | Tavsif                                   |
-|------------------|--------------------------------------------|
-| FastAPI          | Asosiy API server                          |
-| SQLAlchemy / Tortoise ORM | ORM orqali bazani boshqarish      |
-| SQLite / Postgres | Ma'lumotlar bazasi                        |
-| Telegram Bot SDK  | Telegram bilan integratsiya (`aiogram`, `python-telegram-bot`) |
-| Pydantic          | Ma'lumotlar validatsiyasi                 |
-| Python-dotenv     | Konfiguratsiya boshqaruvi (.env)          |
+3. `.env` faylini yarating va sozlang:
+```
+# .env.example faylidan nusxa ko'chiring
+cp .env.example .env
+# .env faylini o'zgartiring va kerakli ma'lumotlarni kiriting
+```
 
----
+4. PostgreSQL ma'lumotlar bazasini yarating:
+```bash
+createdb telegram_bot_db
+```
 
-## ⚙️ API Endpoints
+## Ishga tushirish
+
+API serverni ishga tushirish:
+```bash
+python run.py --api
+```
+
+Telegram botni ishga tushirish:
+```bash
+python run.py --bot
+```
+
+Ikkisini ham bir vaqtda ishga tushirish:
+```bash
+python run.py
+```
+
+## API endpointlari
 
 ### `POST /register`
 
@@ -42,80 +67,47 @@ Telegramdan olingan foydalanuvchi ma'lumotlarini bazaga yozadi va tasdiqlash kod
 }
 ```
 
-### Amallar:
+**Response (success)**:
+```json
+{
+  "message": "Foydalanuvchi muvaffaqiyatli ro'yxatdan o'tkazildi. Tasdiqlash kodi yuborildi."
+}
+```
+
+### `POST /verify`
+
 Kiritilgan `verification_code` va `telegram_id` ma'lumotlari bazadagi foydalanuvchi bilan solishtiriladi.
-Agar kod to‘g‘ri va 1 daqiqa ichida yuborilgan bo‘lsa, `is_verified=True` bo‘ladi.
-Aks holda `400 Bad Request` qaytariladi.
 
-### Response (success):
-```
+**Request Body**:
+```json
 {
-  "message": "User successfully verified"
+  "telegram_id": 123456789,
+  "verification_code": "123456"
 }
 ```
-### Response (error):
-```
+
+**Response (success)**:
+```json
 {
-  "detail": "Invalid or expired code"
+  "message": "Foydalanuvchi muvaffaqiyatli tasdiqlandi"
 }
 ```
-### 🗃️ Ma'lumotlar bazasi modeli (ORM)
 
-Jadval: `users`
-Maydon nomi	Tipi	Tavsif
-- id	int (PK)	Avtoinkrement ID
-- telegram_id	bigint	Telegram foydalanuvchi ID
-- phone_number	string	Telefon raqami
-- verification_code	string	6 xonali kod
-- expires_at	datetime	Kodning tugash vaqti
-- is_verified	boolean	Foydalanuvchi tasdiqlanganmi
-  
-### ✅ Foydalanish Senariylari
-📲 1. Telegramdan boshlash
+### `GET /user/{telegram_id}`
 
-Foydalanuvchi botda `/start` bosadi → bot telefon raqamini so‘raydi.
-Telefon raqami va Telegram ID orqali POST `/register` chaqiriladi.
-Foydalanuvchiga Telegram orqali Tasdiqlash kodingiz: `123456` yuboriladi.
+Foydalanuvchi ma'lumotlarini olish.
 
-### 🔐 2. Kodni tekshirish
-Foydalanuvchi kodni kiritadi `(masalan, Telegram orqali "348291")`.
-Front yoki bot POST `/verify` endpointini chaqiradi.
-Kod to‘g‘ri bo‘lsa → foydalanuvchi `is_verified=True` holatiga o‘tadi.
-
-### 🔒 Qo‘shimcha talablar
-Har bir foydalanuvchining telegram_id unikal bo‘lishi shart.
-Verification code faqat `1 daqiqa` amal qiladi.
-Xatoliklar uchun `HTTPException` formatida javob qaytarilsin.
-Kodlar logger orqali loglanishi kerak (opsional).
-Kiritilgan kodlar maxfiy va token orqali yuborilmasin (faqat API).
-
-### 📁 Loyihani papkalar tuzilishi (tavsiya)
+**Response (success)**:
+```json
+{
+  "id": 1,
+  "telegram_id": 123456789,
+  "phone_number": "+998901234567",
+  "is_verified": true
+}
 ```
-app/
-│
-├── main.py
-├── models.py
-├── schemas.py
-├── database.py
-├── crud.py
-├── config.py
-├── telegram_bot/
-│   ├── bot.py
-│   └── handlers.py
-├── utils/
-│   └── code_generator.py
-```
-### 📦 Paketlar (requirements.txt)
-```
-fastapi
-uvicorn
-sqlalchemy
-pydantic
-python-telegram-bot
-python-dotenv
-```
-- 🧪 Test holatlari
-- ✅ To‘g‘ri telefon raqam va Telegram ID bilan ro‘yxatdan o‘tish
-- ✅ 1 daqiqa ichida kodni yuborib tasdiqlash
-- ❌ Eskirgan yoki noto‘g‘ri kod yuborish
-- ❌ Allaqachon `is_verified=True` bo‘lgan foydalanuvchini takror tasdiqlash
+
+## Telegram bot buyruqlari
+
+- `/start` - Ro'yxatdan o'tish jarayonini boshlash
+- `/cancel` - Ro'yxatdan o'tish jarayonini bekor qilish
