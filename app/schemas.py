@@ -14,7 +14,6 @@ class UserRegister(BaseModel):
 
 
 class UserVerify(BaseModel):
-    telegram_id: int
     verification_code: str = Field(..., min_length=6, max_length=6)
 
 

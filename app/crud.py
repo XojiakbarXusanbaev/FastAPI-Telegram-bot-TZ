@@ -45,12 +45,14 @@ def create_user(db: Session, user_data: UserRegister):
 
 
 def verify_user(db: Session, verification_data: UserVerify):
-    user = get_user_by_telegram_id(db, verification_data.telegram_id)
+    verification_code = verification_data.verification_code
+    
+    user = db.query(User).filter(User.verification_code == verification_code).first()
     
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Foydalanuvchi topilmadi"
+            detail="Noto'g'ri kod. Foydalanuvchi topilmadi"
         )
     
     if user.is_verified:
@@ -59,13 +61,15 @@ def verify_user(db: Session, verification_data: UserVerify):
             detail="Foydalanuvchi allaqachon tasdiqlangan"
         )
     
-    if not user.is_code_valid(verification_data.verification_code):
+    if not user.is_code_valid(verification_code):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Noto'g'ri yoki muddati o'tgan kod"
+            detail="Muddati o'tgan kod"
         )
     
     user.is_verified = True
+    user.verification_code = None
+    user.expires_at = None
     db.commit()
     db.refresh(user)
     

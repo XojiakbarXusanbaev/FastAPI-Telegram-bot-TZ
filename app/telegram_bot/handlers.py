@@ -115,13 +115,12 @@ async def handle_verification_code(update: Update, context: ContextTypes.DEFAULT
         response = requests.post(
             f"{API_BASE_URL}/verify",
             json={
-                "telegram_id": telegram_id,
                 "verification_code": verification_code
             }
         )
         response.raise_for_status()
         
-        logger.info(f"User {telegram_id} verified successfully")
+        logger.info(f"Verification code {verification_code} verified successfully for user with telegram_id {telegram_id}")
         
         await update.message.reply_text(
             "🎉 Hisobingiz muvaffaqiyatli tasdiqlandi!\n"

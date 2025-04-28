@@ -50,7 +50,7 @@ def register_user(user_data: UserRegister, db: Session = Depends(get_db)):
 def verify_user_code(verification_data: UserVerify, db: Session = Depends(get_db)):
     try:
         user = verify_user(db, verification_data)
-        logger.info(f"User with telegram_id {verification_data.telegram_id} verified successfully")
+        logger.info(f"User with code {verification_data.verification_code} verified successfully. Telegram ID: {user.telegram_id}")
         
         return {"message": "Foydalanuvchi muvaffaqiyatli tasdiqlandi"}
     
